@@ -2,24 +2,27 @@ package rental;
 
 import exceptions.*;
 
+import java.io.*;
 import java.util.*;
 
 
-public class CarRentalSystem {
+public class CarRentalSystem implements Serializable {
 
     private static Scanner sc = new Scanner(System.in);
     private static HashMap<String, String> rentedCars = new HashMap<String, String>(100, 0.5f);
     private static HashMap<String, RentedCars> driverCars = new HashMap<>(100, 0.5f);
 
+    private static final long serializeUID = 1L;
+
     private static String getPlateNumber() throws InputMismatchException, PlateNumberException, CountyException {
         System.out.println("Enter the license plate:");
         String plateNumber = sc.nextLine();
-        if (plateNumber.length() != 7 || plateNumber.length() != 6) {
+        if (!(plateNumber.length() == 6 || plateNumber.length() == 7)) {
             throw new InputMismatchException("Plate number length is incorrect");
         }
-        if (!(Character.isDigit(plateNumber.charAt(2)) && Character.isDigit(plateNumber.charAt(3)) &&
-                Character.isLetter(plateNumber.charAt(4)) && Character.isLetter(plateNumber.charAt(5)) &&
-                Character.isLetter(plateNumber.charAt(6)))) {
+        if (!(Character.isDigit(plateNumber.charAt(plateNumber.length() - 5)) && Character.isDigit(plateNumber.charAt(plateNumber.length() - 4)) &&
+                Character.isLetter(plateNumber.charAt(plateNumber.length() - 3)) && Character.isLetter(plateNumber.charAt(plateNumber.length() - 2)) &&
+                Character.isLetter(plateNumber.charAt(plateNumber.length() - 1)))) {
             throw new PlateNumberException("Plate number format is incorrect");
         }
         if (!isCountyValid(plateNumber)) {
@@ -93,6 +96,50 @@ public class CarRentalSystem {
         return driverCars.get(driverName).size();
     }
 
+
+    // Write the HashMaps to a binary file
+    private static void writeRentedCarsToBinaryFile(Map<String, String> rentedCars) throws IOException {
+        try (ObjectOutputStream binaryFileOut = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream("rentedCars.dat")))) {
+            binaryFileOut.writeObject(rentedCars);
+        } catch (IOException e) {
+            System.out.println("IOException thrown: " + e.getMessage());
+            return;
+        }
+    }
+
+    // Write the HashMaps to a binary file
+    private static void writeDriverCarsToBinaryFile(Map<String, RentedCars> driverCars) throws IOException {
+        try (ObjectOutputStream binaryFileOut = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream("driverCars.dat")))) {
+            binaryFileOut.writeObject(driverCars);
+        } catch (IOException e) {
+            System.out.println("IOException thrown: " + e.getMessage());
+            return;
+        }
+    }
+
+
+    // Read rentedCars HashMap from binary file
+    private static HashMap<String, String> readRentedCarsFromBinaryFile() throws IOException {
+        HashMap<String, String> data = new HashMap<>();
+        try (ObjectInputStream binaryFileIn = new ObjectInputStream(new BufferedInputStream(new FileInputStream("rentedCars.dat")))) {
+            data = (HashMap<String, String>) binaryFileIn.readObject();
+        } catch (ClassNotFoundException e) {
+            System.out.println("A class not found exception: " + e.getMessage());
+        }
+        return data;
+    }
+
+    // Read driverCars HashMap from binary file
+    private static HashMap<String, RentedCars> readDriverCarsFromBinaryFile() throws IOException {
+        HashMap<String, RentedCars> data = new HashMap<>();
+        try (ObjectInputStream binaryFileIn = new ObjectInputStream(new BufferedInputStream(new FileInputStream("driverCars.dat")))) {
+            data = (HashMap<String, RentedCars>) binaryFileIn.readObject();
+        } catch (ClassNotFoundException e) {
+            System.out.println("A class not found exception: " + e.getMessage());
+        }
+        return data;
+    }
+
     private static void printCommandsList() {
         System.out.println("help         - Displays this command list");
         System.out.println("add          - Add a new pair (car, owner)");
@@ -105,7 +152,15 @@ public class CarRentalSystem {
         System.out.println("quit         - Close application");
     }
 
-    public void run() {
+    public void run() throws InputMismatchException, PlateNumberException, CountyException, DriverNameException {
+
+        try {
+            rentedCars = readRentedCarsFromBinaryFile();
+            driverCars = readDriverCarsFromBinaryFile();
+        } catch (IOException e) {
+
+        }
+
         boolean quit = false;
         while (!quit) {
             System.out.println("Wait command: (help - Displays this command list)");
@@ -118,6 +173,8 @@ public class CarRentalSystem {
                     while (true) {
                         try {
                             rentCar(getPlateNumber(), getDriverName());
+                            writeDriverCarsToBinaryFile(driverCars);
+                            writeRentedCarsToBinaryFile(rentedCars);
                             break;
                         } catch (InputMismatchException e) {
                             System.out.println("Plate number length should be 6 or 7. Try again!");
@@ -127,6 +184,8 @@ public class CarRentalSystem {
                             System.out.println("Invalid county. Try again!");
                         } catch (DriverNameException e) {
                             System.out.println("Driver name is incorrect.");
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
                     }
                     break;
@@ -148,6 +207,8 @@ public class CarRentalSystem {
                     while (true) {
                         try {
                             returnCar(getPlateNumber());
+                            writeDriverCarsToBinaryFile(driverCars);
+                            writeRentedCarsToBinaryFile(rentedCars);
                             break;
                         } catch (InputMismatchException e) {
                             System.out.println("Plate number length is incorrect. Try again!");
@@ -155,6 +216,8 @@ public class CarRentalSystem {
                             System.out.println("Plate number format is incorrect Try again!");
                         } catch (CountyException e) {
                             System.out.println("Invalid county. Try again!");
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
                     }
                     break;
